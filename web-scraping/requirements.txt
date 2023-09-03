@@ -1,0 +1,12 @@
+streamlit
+langchain
+chromadb
+openai
+html2text
+google-api-core
+google-api-python-client
+google-auth
+google-auth-httplib2
+googleapis-common-protos
+tiktoken
+faiss-cpu
