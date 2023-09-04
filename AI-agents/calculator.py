@@ -15,4 +15,4 @@ agent = initialize_agent(
 
 print(agent.agent.llm_chain.prompt.template)
 
-agent.run("My monthly salary is 10000 KES, if i work for 10 months. How much is my total salary in USD in those 10 months.")
+agent.run("Configuration de l'environnement DBT")
