@@ -12,6 +12,7 @@ from langchain.schema import (
 )
 
 
+# Define a CAMEL agent helper class
 class CAMELAgent:
     def __init__(
         self,
@@ -45,11 +46,14 @@ class CAMELAgent:
         return output_message
         
 
+# Setup roles and task for role-playing
 assistant_role_name = "Python Programmer"
 user_role_name = "Stock Trader"
 task = "Develop a trading bot for the stock market"
 word_limit = 50  # word limit for task brainstorming
 
+
+# Create a task specify agent for brainstorming and get the specified task
 task_specifier_sys_msg = SystemMessage(content="You can make a task more specific.")
 task_specifier_prompt = """Here is a task that {assistant_role_name} will help {user_role_name} to complete: {task}.
 Please make it more specific. Be creative and imaginative.
@@ -68,6 +72,7 @@ specified_task_msg = task_specify_agent.step(task_specifier_msg)
 print(f"Specified task: {specified_task_msg.content}")
 specified_task = specified_task_msg.content
 
+# Create inception prompts for AI assistant and AI user for role-playing
 assistant_inception_prompt = """Never forget you are a {assistant_role_name} and I am a {user_role_name}. Never flip roles! Never instruct me!
 We share a common interest in collaborating to successfully complete a task.
 You must help me to complete the task.
@@ -113,3 +118,66 @@ Do not add anything else other than your instruction and the optional correspond
 Keep giving me instructions and necessary inputs until you think the task is completed.
 When the task is completed, you must only reply with a single word <CAMEL_TASK_DONE>.
 Never say <CAMEL_TASK_DONE> unless my responses have solved your task."""
+
+
+# Create a helper helper to get system messages for AI assistant and AI user from role names and the tas
+def get_sys_msgs(assistant_role_name: str, user_role_name: str, task: str):
+    assistant_sys_template = SystemMessagePromptTemplate.from_template(
+        template=assistant_inception_prompt
+    )
+    assistant_sys_msg = assistant_sys_template.format_messages(
+        assistant_role_name=assistant_role_name,
+        user_role_name=user_role_name,
+        task=task,
+    )[0]
+
+    user_sys_template = SystemMessagePromptTemplate.from_template(
+        template=user_inception_prompt
+    )
+    user_sys_msg = user_sys_template.format_messages(
+        assistant_role_name=assistant_role_name,
+        user_role_name=user_role_name,
+        task=task,
+    )[0]
+
+    return assistant_sys_msg, user_sys_msg
+    
+# Create AI assistant agent and AI user agent from obtained system messages
+assistant_sys_msg, user_sys_msg = get_sys_msgs(
+    assistant_role_name, user_role_name, specified_task
+)
+assistant_agent = CAMELAgent(assistant_sys_msg, ChatOpenAI(temperature=0.2))
+user_agent = CAMELAgent(user_sys_msg, ChatOpenAI(temperature=0.2))
+
+# Reset agents
+assistant_agent.reset()
+user_agent.reset()
+
+# Initialize chats
+user_msg = HumanMessage(
+    content=(
+        f"{user_sys_msg.content}. "
+        "Now start to give me introductions one by one. "
+        "Only reply with Instruction and Input."
+    )
+)
+
+assistant_msg = HumanMessage(content=f"{assistant_sys_msg.content}")
+assistant_msg = assistant_agent.step(user_msg)
+
+# Start role-playing session to solve the task!
+print(f"Original task prompt:\n{task}\n")
+print(f"Specified task prompt:\n{specified_task}\n")
+
+chat_turn_limit, n = 30, 0
+while n < chat_turn_limit:
+    n += 1
+    user_ai_msg = user_agent.step(assistant_msg)
+    user_msg = HumanMessage(content=user_ai_msg.content)
+    print(f"AI User ({user_role_name}):\n\n{user_msg.content}\n\n")
+
+    assistant_ai_msg = assistant_agent.step(user_msg)
+    assistant_msg = HumanMessage(content=assistant_ai_msg.content)
+    print(f"AI Assistant ({assistant_role_name}):\n\n{assistant_msg.content}\n\n")
+    if "<CAMEL_TASK_DONE>" in user_msg.content:
+        break
